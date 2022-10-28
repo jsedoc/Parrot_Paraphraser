@@ -1,33 +1,38 @@
+import re
+from transformers import T5Tokenizer
+from transformers import AutoModelForSeq2SeqLM
+import pandas as pd
+from filters import Adequacy
+from filters import Fluency
+from filters import Diversity
+
 class Parrot():
   
   def __init__(self, model_tag="prithivida/parrot_paraphraser_on_T5", use_gpu=False):
-    from transformers import AutoTokenizer
-    from transformers import AutoModelForSeq2SeqLM
-    import pandas as pd
-    from parrot.filters import Adequacy
-    from parrot.filters import Fluency
-    from parrot.filters import Diversity
-    self.tokenizer = AutoTokenizer.from_pretrained(model_tag, use_auth_token=True)
+    self.tokenizer = T5Tokenizer.from_pretrained("t5-small")
     self.model     = AutoModelForSeq2SeqLM.from_pretrained(model_tag, use_auth_token=True)
     self.adequacy_score = Adequacy()
     self.fluency_score  = Fluency()
     self.diversity_score= Diversity()
 
-  def rephrase(self, input_phrase, use_gpu=False, diversity_ranker="levenshtein", do_diverse=False, style=1, max_length=32, adequacy_threshold = 0.90, fluency_threshold = 0.90):
+  def clean(input_phrase):
+      input_phrase = re.sub('[^a-zA-Z0-9 \?\'\-\/\:\.]', '', input_phrase)
+      input_phrase = "paraphrase: " + input_phrase
+      return input_phrase
+    
+
+  def rephrase(self, input_phrase_lst, use_gpu=False, diversity_ranker="levenshtein", do_diverse=False, style=1, max_length=32, adequacy_threshold = 0.90, fluency_threshold = 0.90):
       if use_gpu:
         device= "cuda:0"
       else:
         device = "cpu"
 
       self.model     = self.model.to(device)
-      import re
-      save_phrase = input_phrase
-      if len(input_phrase) >= max_length:
-         max_length += 32 	
-      input_phrase = re.sub('[^a-zA-Z0-9 \?\'\-\/\:\.]', '', input_phrase)
-      input_phrase = "paraphrase: " + input_phrase
-      input_ids = self.tokenizer.encode(input_phrase, return_tensors='pt')
+
+
+      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
       input_ids = input_ids.to(device)
+      
       max_return_phrases = 10
       if do_diverse:
         for n in range(2, 9):
@@ -35,7 +40,8 @@ class Parrot():
             break 
         #print("max_return_phrases - ", max_return_phrases , " and beam groups -", n)            
         preds = self.model.generate(
-              input_ids,
+              input_ids=input_ids["input_ids"],
+              attention_mask=input_ids["attention_mask"],
               do_sample=False, 
               max_length=max_length, 
               num_beams = max_return_phrases,
@@ -45,7 +51,8 @@ class Parrot():
               num_return_sequences=max_return_phrases)
       else: 
         preds = self.model.generate(
-                input_ids,
+                input_ids=input_ids["input_ids"],
+                attention_mask=input_ids["attention_mask"],
                 do_sample=True, 
                 max_length=max_length, 
                 top_k=50, 
@@ -75,7 +82,7 @@ class Parrot():
         else:
             return [(save_phrase,0)]
 
-  def augment(self, input_phrase, use_gpu=False, diversity_ranker="levenshtein", do_diverse=False, max_return_phrases = 10, max_length=32, adequacy_threshold = 0.90, fluency_threshold = 0.90):
+  def augment(self, input_phrase_lst, use_gpu=False, diversity_ranker="levenshtein", do_diverse=False, max_return_phrases = 10, max_length=32, adequacy_threshold = 0.90, fluency_threshold = 0.90):
       if use_gpu:
         device= "cuda:0"
       else:
@@ -83,24 +90,19 @@ class Parrot():
 
       self.model     = self.model.to(device)
 
-      import re
-
-      save_phrase = input_phrase
-      if len(input_phrase) >= max_length:
-         max_length += 32	
-			
-      input_phrase = re.sub('[^a-zA-Z0-9 \?\'\-\/\:\.]', '', input_phrase)
-      input_phrase = "paraphrase: " + input_phrase
-      input_ids = self.tokenizer.encode(input_phrase, return_tensors='pt')
+      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
       input_ids = input_ids.to(device)
 
+      import pdb; pdb.set_trace()
+      
       if do_diverse:
         for n in range(2, 9):
           if max_return_phrases % n == 0:
             break 
         #print("max_return_phrases - ", max_return_phrases , " and beam groups -", n)            
         preds = self.model.generate(
-              input_ids,
+              input_ids=input_ids["input_ids"],
+              attention_mask=input_ids["attention_mask"],
               do_sample=False, 
               max_length=max_length, 
               num_beams = max_return_phrases,
@@ -110,18 +112,21 @@ class Parrot():
               num_return_sequences=max_return_phrases)
       else: 
         preds = self.model.generate(
-                input_ids,
+                input_ids=input_ids["input_ids"],
+                attention_mask=input_ids["attention_mask"],
                 do_sample=True, 
                 max_length=max_length, 
                 top_k=50, 
                 top_p=0.95, 
                 early_stopping=True,
                 num_return_sequences=max_return_phrases) 
-        
 
+      import pdb; pdb.set_trace()
+        
       paraphrases= set()
 
       for pred in preds:
+        print(pred)
         gen_pp = self.tokenizer.decode(pred, skip_special_tokens=True).lower()
         gen_pp = re.sub('[^a-zA-Z0-9 \?\'\-]', '', gen_pp)
         paraphrases.add(gen_pp)
