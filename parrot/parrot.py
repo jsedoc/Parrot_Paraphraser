@@ -14,7 +14,7 @@ class Parrot():
     self.adequacy_score = Adequacy()
     self.fluency_score  = Fluency()
     self.diversity_score= Diversity()
-
+      
   def clean(input_phrase):
       input_phrase = re.sub('[^a-zA-Z0-9 \?\'\-\/\:\.]', '', input_phrase)
       input_phrase = "paraphrase: " + input_phrase
@@ -27,7 +27,7 @@ class Parrot():
       else:
         device = "cpu"
 
-      self.model     = self.model.to(device)
+
 
 
       input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
@@ -58,8 +58,8 @@ class Parrot():
                 top_k=50, 
                 top_p=0.95, 
                 early_stopping=True,
-                num_return_sequences=max_return_phrases) 
-        
+                num_return_sequences=max_return_phrases)
+
       paraphrases= set()
 
       for pred in preds:
@@ -82,7 +82,14 @@ class Parrot():
         else:
             return [(save_phrase,0)]
 
-  def augment(self, input_phrase_lst, use_gpu=False, diversity_ranker="levenshtein", do_diverse=False, max_return_phrases = 10, max_length=32, adequacy_threshold = 0.90, fluency_threshold = 0.90):
+  def augment(self, input_phrase_lst,
+              use_gpu=False,
+              diversity_ranker="levenshtein",
+              do_diverse=False,
+              max_return_phrases = 10,
+              max_length=32,
+              adequacy_threshold = 0.90,
+              fluency_threshold = 0.90):
       if use_gpu:
         device= "cuda:0"
       else:
@@ -93,8 +100,6 @@ class Parrot():
       input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
       input_ids = input_ids.to(device)
 
-      import pdb; pdb.set_trace()
-      
       if do_diverse:
         for n in range(2, 9):
           if max_return_phrases % n == 0:
@@ -116,34 +121,39 @@ class Parrot():
                 attention_mask=input_ids["attention_mask"],
                 do_sample=True, 
                 max_length=max_length, 
-                top_k=50, 
-                top_p=0.95, 
+                #top_k=50, 
+                top_p=0.9, 
                 early_stopping=True,
                 num_return_sequences=max_return_phrases) 
 
-      import pdb; pdb.set_trace()
+
+      preds = preds.unsqueeze(0).reshape(input_ids["input_ids"].shape[0],
+                                         max_return_phrases,-1)
         
-      paraphrases= set()
 
-      for pred in preds:
-        print(pred)
-        gen_pp = self.tokenizer.decode(pred, skip_special_tokens=True).lower()
-        gen_pp = re.sub('[^a-zA-Z0-9 \?\'\-]', '', gen_pp)
-        paraphrases.add(gen_pp)
+      praphrases = []
+      for i, pred in enumerate(preds):
+        #print(pred)
+        gen_pps = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
+        paraphrases= set()
+        for gen_pp in gen_pps:
+          paraphrases.add(re.sub('[^a-zA-Z0-9 \?\'\-]', '', gen_pp))
 
-
-      adequacy_filtered_phrases = self.adequacy_score.filter(input_phrase, paraphrases, adequacy_threshold, device )
-      if len(adequacy_filtered_phrases) > 0 :
-        fluency_filtered_phrases = self.fluency_score.filter(adequacy_filtered_phrases, fluency_threshold, device )
-        if len(fluency_filtered_phrases) > 0 :
+        input_phrase = input_phrase_lst[i].replace("paraphrase: ",'')
+        adequacy_filtered_phrases = self.adequacy_score.filter(input_phrase, paraphrases, adequacy_threshold, device )
+        if len(adequacy_filtered_phrases) > 0 :
+          fluency_filtered_phrases = self.fluency_score.filter(adequacy_filtered_phrases, fluency_threshold, device )
+          if len(fluency_filtered_phrases) > 0 :
             diversity_scored_phrases = self.diversity_score.rank(input_phrase, fluency_filtered_phrases, diversity_ranker)
             para_phrases = []
             for para_phrase, diversity_score in diversity_scored_phrases.items():
                 para_phrases.append((para_phrase, diversity_score))
             para_phrases.sort(key=lambda x:x[1], reverse=True)
-            return para_phrases
+            praphrases.append(para_phrases)
+          else:
+            praphrases.append([])
         else:
-            return [(save_phrase,0)]
-
-
+          praphrases.append([])
+            
+      return ([orig.replace("paraphrase: ",'') for orig in input_phrase_lst], praphrases)
 
