@@ -30,7 +30,7 @@ class Parrot():
 
 
 
-      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
+      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True, truncation=True, max_length=64)
       input_ids = input_ids.to(device)
       
       max_return_phrases = 10
@@ -97,7 +97,8 @@ class Parrot():
 
       self.model     = self.model.to(device)
 
-      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
+      #input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True)
+      input_ids = self.tokenizer(input_phrase_lst, return_tensors='pt', padding=True, truncation=True, max_length=64)
       input_ids = input_ids.to(device)
 
       if do_diverse:

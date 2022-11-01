@@ -2,6 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import socket
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -14,7 +15,14 @@ df = pd.read_csv(sys.argv[1])
 
 all_paraphrases = []
 
-batch_size = 64
+hostname = socket.gethostname()
+if "gv" in hostname:
+  batch_size = 24
+elif "gr" in hostname:
+  batch_size = 36
+else:
+  batch_size = 48
+
 chunks = (len(df) - 1) // batch_size + 1
 data = df['SEG'].to_list()
 for i in tqdm(range(chunks)):
@@ -28,7 +36,7 @@ for i in tqdm(range(chunks)):
                                 use_gpu=True,
                                 diversity_ranker="levenshtein",
                                 do_diverse=False, 
-                                max_return_phrases = 50, 
+                                max_return_phrases = 40, 
                                 max_length=32, 
                                 adequacy_threshold = 0.85, 
                                 fluency_threshold = 0.8)
