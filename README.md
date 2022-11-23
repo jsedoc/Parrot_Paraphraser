@@ -1,6 +1,27 @@
 [![PyPI - License](https://img.shields.io/hexpm/l/plug)](https://github.com/PrithivirajDamodaran/Parrot/blob/main/LICENSE)
 [![Visits Badge](https://badges.pufler.dev/visits/PrithivirajDamodaran/Parrot_Paraphraser)](https://badges.pufler.dev)
 
+# For DSTC11
+
+### Step 0 
+
+git clone repo
+
+### Step 1 setup conda environment
+```
+conda env create -n parrot --file conda_env_parrot.yml
+```
+
+### Step 2
+```
+conda activate parrot
+```
+
+### Step 3
+```
+python parrot/paraphrase.py $FILE
+```
+
 # Parrot
 Parrot is a paraphrase based utterance augmentation framework purpose built to accelerate training NLU models. A paraphrase framework is more than just a paraphrasing model.
 
