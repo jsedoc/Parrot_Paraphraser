@@ -29,9 +29,9 @@ for i in tqdm(range(chunks)):
   phrase = data[i*batch_size:(i+1)*batch_size]
 #[["Can you recommed some upscale restaurants in Rome?", "This is great."]]
 #for phrase in df['SEG']:
-  print("-"*100)
-  print(phrase)
-  print("-"*100)
+  #print("-"*100)
+  #print(phrase)
+  #print("-"*100)
   para_phrases = parrot.augment(input_phrase_lst=phrase,
                                 use_gpu=True,
                                 diversity_ranker="levenshtein",
@@ -41,9 +41,9 @@ for i in tqdm(range(chunks)):
                                 adequacy_threshold = 0.85, 
                                 fluency_threshold = 0.8)
 
-  for orig, paraphrase in zip(para_phrases[0], para_phrases[1]):
-      print(orig)
-      print(paraphrase)
+  #for orig, paraphrase in zip(para_phrases[0], para_phrases[1]):
+      #print(orig)
+      #print(paraphrase)
   all_paraphrases += para_phrases[1]
 
 df['paraphrases'] = all_paraphrases
